@@ -1,6 +1,8 @@
 streamlit
+google-genai
+python-dotenv
 pandas
 numpy
-joblib
+matplotlib
+seaborn
 scikit-learn
-xgboost
