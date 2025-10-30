@@ -31,9 +31,11 @@ def get_client():
     if not api_key:
         raise ValueError("GEMINI_API_KEY not found in environment variables")
     
-    # --- FIX 1: Return the Client instance directly ---
-    # The modern SDK uses a Client object for all operations
-    return genai.Client(api_key=api_key)
+    # --- FIX 1 REVERSION: Reverting to genai.configure() 
+    # This addresses the error: 'google.generativeai' has no attribute 'Client'
+    genai.configure(api_key=api_key)
+    # Return the module itself, which acts as the configured client in older SDK versions.
+    return genai
 
 
 # ===============================================================
@@ -68,7 +70,7 @@ KNOWLEDGE BASE:
 """
 
     try:
-        client = get_client()
+        client = get_client() # client is now the configured genai module
         if chat_history is None:
             chat_history = []
 
@@ -77,11 +79,11 @@ KNOWLEDGE BASE:
         messages = [system_prompt] + [m["content"] for m in chat_history[-10:]] + [f"User Question: {user_question}"]
         full_prompt = "\n\n".join(messages)
 
-        # --- FIX 2: Use client.models.generate_content ---
-        response = client.models.generate_content(
+        # --- FIX 2/3 UPDATE: Use the direct generate_content call on the configured module ---
+        response = client.generate_content(
             model="gemini-2.5-flash",
             contents=full_prompt,
-            config=genai.types.GenerateContentConfig(
+            config=client.types.GenerateContentConfig( # Using client.types assuming it's available on the module
                 temperature=0.3,
                 max_output_tokens=1024,
             )
@@ -112,13 +114,13 @@ Create a structured report with headings, numeric metrics, and clear recommendat
 """
 
     try:
-        client = get_client()
+        client = get_client() # client is now the configured genai module
         
-        # --- FIX 3: Use client.models.generate_content ---
-        response = client.models.generate_content(
+        # --- FIX 3/3 UPDATE: Use the direct generate_content call on the configured module ---
+        response = client.generate_content(
             model="gemini-2.5-pro",
             contents=prompt,
-            config=genai.types.GenerateContentConfig(
+            config=client.types.GenerateContentConfig( # Using client.types assuming it's available on the module
                 temperature=0.4,
                 max_output_tokens=8192,
             )
