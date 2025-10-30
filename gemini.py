@@ -4,7 +4,8 @@
 import os
 
 try:
-    import google.generativeai as genai
+    # --- FIX 1: Using the modern, simplified SDK name as per your working example ---
+    import google.genai as genai
 except ModuleNotFoundError:
     genai = None
 
@@ -23,19 +24,17 @@ def load_knowledge_base(path: str) -> str:
 # Gemini Client
 # -------------------------
 def get_client():
-    """Configure and return Gemini client."""
+    """Get or create Gemini client using the modern pattern."""
     if genai is None:
-        raise ModuleNotFoundError("google.generativeai module not installed.")
+        # Note: We now check for the correct module name (google.genai)
+        raise ModuleNotFoundError("google.genai module not installed. Please use 'pip install google-genai'.")
     
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY not found in environment variables")
     
-    # --- FIX 1 REVERSION: Reverting to genai.configure() 
-    # This addresses the error: 'google.generativeai' has no attribute 'Client'
-    genai.configure(api_key=api_key)
-    # Return the module itself, which acts as the configured client in older SDK versions.
-    return genai
+    # --- FIX 2: Initialize the client using the correct modern class ---
+    return genai.Client(api_key=api_key)
 
 
 # ===============================================================
@@ -44,8 +43,6 @@ def get_client():
 def chat_with_frostmart(user_question: str, knowledge_base: str, chat_history: list = None) -> str:
     """
     Chat with AI using the FrostMart UK knowledge base as context.
-    
-    NOTE: This uses the single-turn `generate_content` method for API compatibility.
     """
     system_prompt = f"""You are a professional AI Assistant for FrostMart UK — a national retail chain specializing in fresh and perishable goods.
 
@@ -70,29 +67,29 @@ KNOWLEDGE BASE:
 """
 
     try:
-        client = get_client() # client is now the configured genai module
+        client = get_client() # client is now a genai.Client instance
         if chat_history is None:
             chat_history = []
 
-        # Include last 10 messages + user question for context
-        # Note: If true multi-turn chat is needed, use client.chats.create()
+        # Include last 10 messages + user question
         messages = [system_prompt] + [m["content"] for m in chat_history[-10:]] + [f"User Question: {user_question}"]
         full_prompt = "\n\n".join(messages)
 
-        # --- FIX 2/3 UPDATE: Use the direct generate_content call on the configured module ---
-        response = client.generate_content(
+        # --- FIX 3: Using client.models.generate_content with dictionary config ---
+        response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=full_prompt,
-            config=client.types.GenerateContentConfig( # Using client.types assuming it's available on the module
-                temperature=0.3,
-                max_output_tokens=1024,
-            )
+            config={
+                "temperature": 0.3,
+                "max_output_tokens": 1024,
+            },
         )
 
         # Extract text directly from the response object
         return response.text if response.text else "No response generated."
 
     except Exception as e:
+        # Note: If this fails, the error will be visible in the Streamlit app.
         return f"⚠️ Chat error: {str(e)}"
 
 
@@ -114,16 +111,16 @@ Create a structured report with headings, numeric metrics, and clear recommendat
 """
 
     try:
-        client = get_client() # client is now the configured genai module
+        client = get_client() # client is now a genai.Client instance
         
-        # --- FIX 3/3 UPDATE: Use the direct generate_content call on the configured module ---
-        response = client.generate_content(
+        # --- FIX 4: Using client.models.generate_content with dictionary config ---
+        response = client.models.generate_content(
             model="gemini-2.5-pro",
             contents=prompt,
-            config=client.types.GenerateContentConfig( # Using client.types assuming it's available on the module
-                temperature=0.4,
-                max_output_tokens=8192,
-            )
+            config={
+                "temperature": 0.4,
+                "max_output_tokens": 8192,
+            },
         )
 
         # Extract text directly from the response object
