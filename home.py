@@ -210,6 +210,9 @@ left_col, chat_col = st.columns([3, 1])
 # RIGHT: Gemini Chat Assistant
 # -----------------------
 # RIGHT: Gemini / FrostMart Chat Assistant
+# -----------------------
+# RIGHT: Gemini Chat Assistant
+# -----------------------
 with chat_col:
     st.markdown("### 🤖 FrostMart UK AI Assistant")
     st.markdown("*Ask questions about sales, demand, wastage, or forecasting insights*")
@@ -220,7 +223,7 @@ with chat_col:
     if 'messages' not in st.session_state:
         st.session_state.messages = []
 
-    # Load knowledge base (from docx or fallback to md)
+    # Load knowledge base (DOCX or MD)
     frost_kb = ""
     kb_docx_path = os.path.join("inference", "frostmart_knowledge_base.docx")
     kb_md_path = os.path.join("inference", "frostmart_knowledge_base.md")
@@ -240,24 +243,21 @@ with chat_col:
     else:
         st.warning("⚠️ FrostMart knowledge base not found.")
 
-    # Fixed-height chat container
-    chat_height = 700  # adjust to match introduction length
-    chat_container = st.container()
-    chat_html_start = f"""
-    <div style='height:{chat_height}px; overflow-y:auto; border:1px solid #ddd; padding:10px; border-radius:10px; background-color:#f9f9f9;'>
-    """
-    chat_html_end = "</div>"
+    # Create a reserved container for chat
+    chat_height = 700
+    chat_box = st.empty()
 
-    # Display messages
-    with chat_container:
-        st.markdown(chat_html_start, unsafe_allow_html=True)
-        for message in st.session_state.messages:
-            role_color = "#0b6b3a" if message["role"] == "assistant" else "#2a2a2a"
-            st.markdown(
-                f"<p style='color:{role_color}; margin:5px 0;'><b>{message['role'].capitalize()}:</b> {message['content']}</p>",
-                unsafe_allow_html=True
-            )
-        st.markdown(chat_html_end, unsafe_allow_html=True)
+    # Function to render chat inside the box
+    def render_chat():
+        html = f"<div style='height:{chat_height}px; overflow-y:auto; border:1px solid #ddd; padding:10px; border-radius:10px; background-color:#f9f9f9;'>"
+        for msg in st.session_state.messages:
+            color = "#0b6b3a" if msg["role"] == "assistant" else "#2a2a2a"
+            html += f"<p style='color:{color}; margin:5px 0;'><b>{msg['role'].capitalize()}:</b> {msg['content']}</p>"
+        html += "</div>"
+        chat_box.markdown(html, unsafe_allow_html=True)
+
+    # Initial render
+    render_chat()
 
     # Chat input
     if prompt := st.chat_input("Ask about sales trends, waste, or forecasting..."):
@@ -268,24 +268,20 @@ with chat_col:
         else:
             with st.spinner("Thinking..."):
                 try:
-                    response = chat_with_frostmart(
-                        prompt,
-                        frost_kb,
-                        st.session_state.chat_history
-                    )
+                    response = chat_with_frostmart(prompt, frost_kb, st.session_state.chat_history)
                     st.session_state.chat_history.append(f"User: {prompt}")
                     st.session_state.chat_history.append(f"Assistant: {response}")
                 except Exception as e:
                     response = f"⚠️ Chat error: {e}"
 
         st.session_state.messages.append({"role": "assistant", "content": response})
-        st.rerun()  # updated for Streamlit ≥1.19
+        render_chat()  # re-render inside the container
 
     # Clear chat button
     if st.button("🗑️ Clear Chat"):
         st.session_state.messages = []
         st.session_state.chat_history = []
-        st.rerun()
+        render_chat()
 
     # Sample Questions (5 from knowledge base)
     with st.expander("💡 Sample Questions"):
