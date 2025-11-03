@@ -8,3 +8,4 @@ seaborn
 scikit-learn
 google-generativeai>=0.8.3
 xgboost
+python-docx
