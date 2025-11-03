@@ -13,6 +13,7 @@ import xgboost as xgb
 from sklearn.preprocessing import LabelEncoder
 from importlib import util as import_util
 from dotenv import load_dotenv
+import docx
 
 # Load the .env file from the same folder as app.py
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -29,13 +30,15 @@ else:
 has_gemini = import_util.find_spec("gemini") is not None
 if has_gemini:
     try:
-        from gemini import chat_with_frostmart, generate_frostmart_report
+        from gemini import chat_with_frostmart, generate_frostmart_report, load_knowledge_base
     except Exception:
         chat_with_frostmart = None
         generate_frostmart_report = None
+        load_knowledge_base = None
 else:
     chat_with_frostmart = None
     generate_frostmart_report = None
+    load_knowledge_base = None
 
 # App config & header
 st.set_page_config(
@@ -186,10 +189,27 @@ def suggested_order(predicted_units: float, buffer_pct: float = 0.05) -> int:
     except Exception:
         return 0
 
+# -----------------------
+# Load DOCX Knowledge Base
+# -----------------------
+kb_path = os.path.join("inference", "frostmart_knowledge_base.docx")
+frost_kb = ""
+if os.path.exists(kb_path):
+    try:
+        doc = docx.Document(kb_path)
+        frost_kb = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+    except Exception as e:
+        st.warning(f"⚠️ Could not load FrostMart knowledge base: {e}")
+else:
+    st.warning("⚠️ FrostMart knowledge base file not found in /inference directory.")
+
 # Layout columns: left main content, right chat assistant
 left_col, chat_col = st.columns([3, 1])
 
+# -----------------------
 # RIGHT: Gemini Chat Assistant
+# -----------------------
+# RIGHT: Gemini / FrostMart Chat Assistant
 with chat_col:
     st.markdown("### 🤖 FrostMart UK AI Assistant")
     st.markdown("*Ask questions about sales, demand, wastage, or forecasting insights*")
@@ -200,16 +220,35 @@ with chat_col:
     if 'messages' not in st.session_state:
         st.session_state.messages = []
 
-    # Fixed-height chat container
-    chat_container = st.container()
-    chat_height = 700  # adjust to match Introduction length
+    # Load knowledge base (from docx or fallback to md)
+    frost_kb = ""
+    kb_docx_path = os.path.join("inference", "frostmart_knowledge_base.docx")
+    kb_md_path = os.path.join("inference", "frostmart_knowledge_base.md")
+    if os.path.exists(kb_docx_path):
+        from docx import Document
+        try:
+            doc = Document(kb_docx_path)
+            frost_kb = "\n".join([p.text for p in doc.paragraphs if p.text.strip() != ""])
+        except Exception as e:
+            st.warning(f"⚠️ Could not read DOCX knowledge base: {e}")
+    elif os.path.exists(kb_md_path):
+        try:
+            with open(kb_md_path, "r", encoding="utf-8") as f:
+                frost_kb = f.read()
+        except Exception as e:
+            st.warning(f"⚠️ Could not read MD knowledge base: {e}")
+    else:
+        st.warning("⚠️ FrostMart knowledge base not found.")
 
+    # Fixed-height chat container
+    chat_height = 700  # adjust to match introduction length
+    chat_container = st.container()
     chat_html_start = f"""
     <div style='height:{chat_height}px; overflow-y:auto; border:1px solid #ddd; padding:10px; border-radius:10px; background-color:#f9f9f9;'>
     """
     chat_html_end = "</div>"
 
-    # Render messages inside the fixed-height scrollable div
+    # Display messages
     with chat_container:
         st.markdown(chat_html_start, unsafe_allow_html=True)
         for message in st.session_state.messages:
@@ -240,7 +279,7 @@ with chat_col:
                     response = f"⚠️ Chat error: {e}"
 
         st.session_state.messages.append({"role": "assistant", "content": response})
-        st.rerun()
+        st.rerun()  # updated for Streamlit ≥1.19
 
     # Clear chat button
     if st.button("🗑️ Clear Chat"):
@@ -257,7 +296,6 @@ with chat_col:
         - How accurate was last week’s forecast across regions?
         - How can FrostMart optimize deliveries to reduce spoilage?
         """)
-
 
 # FrostMart Report Generation
 st.markdown("---")
@@ -304,7 +342,10 @@ if generate_frostmart_report is not None:
 else:
     st.info("⚠️ Report generator unavailable. Please add `gemini.py` with the function `generate_frostmart_report()` to enable this feature.")
 
-# LEFT: Main app tabs
+
+# -----------------------
+# LEFT: Main App Tabs
+# -----------------------
 with left_col:
     tab1, tab2, tab3, tab4 = st.tabs(
         ["📊 Introduction & Objectives", "🔮 Single Product Prediction", "📈 Batch Processing", "🧠 Model Details"]
