@@ -14,6 +14,8 @@ from sklearn.preprocessing import LabelEncoder
 from importlib import util as import_util
 from dotenv import load_dotenv
 import docx
+from gemini import chat_with_frostmart, generate_frostmart_report, load_knowledge_base
+
 
 # Load the .env file from the same folder as app.py
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -213,85 +215,114 @@ left_col, chat_col = st.columns([3, 1])
 # -----------------------
 # RIGHT: Gemini Chat Assistant
 # -----------------------
+# -----------------------
+# Right: AI Chat Assistant
+# -----------------------
+# -----------------------
+# RIGHT: Gemini Chat Assistant
+# -----------------------
 with chat_col:
-    st.markdown("### 🤖 FrostMart UK AI Assistant")
-    st.markdown("*Ask questions about sales, demand, wastage, or forecasting insights*")
+    st.markdown("### 🤖 AI Assistant")
+    st.markdown("*Ask questions about the dataset*")
 
-    # Initialize session states
+    # Initialize session states if not present
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     if 'messages' not in st.session_state:
         st.session_state.messages = []
 
-    # Load knowledge base (DOCX or MD)
-    frost_kb = ""
-    kb_docx_path = os.path.join("inference", "frostmart_knowledge_base.docx")
-    kb_md_path = os.path.join("inference", "frostmart_knowledge_base.md")
-    if os.path.exists(kb_docx_path):
-        from docx import Document
-        try:
-            doc = Document(kb_docx_path)
-            frost_kb = "\n".join([p.text for p in doc.paragraphs if p.text.strip() != ""])
-        except Exception as e:
-            st.warning(f"⚠️ Could not read DOCX knowledge base: {e}")
-    elif os.path.exists(kb_md_path):
-        try:
-            with open(kb_md_path, "r", encoding="utf-8") as f:
-                frost_kb = f.read()
-        except Exception as e:
-            st.warning(f"⚠️ Could not read MD knowledge base: {e}")
-    else:
-        st.warning("⚠️ FrostMart knowledge base not found.")
-
+    # ---------------------------
     # Create a reserved container for chat
+    # ---------------------------
     chat_height = 700
     chat_box = st.empty()
 
-    # Function to render chat inside the box
+    # ---------------------------
+    # Function to render chat messages with emojis and alignment
+    # ---------------------------
     def render_chat():
-        html = f"<div style='height:{chat_height}px; overflow-y:auto; border:1px solid #ddd; padding:10px; border-radius:10px; background-color:#f9f9f9;'>"
+        chat_html_start = f"""
+        <div style='height:{chat_height}px; overflow-y:auto; border:1px solid #ddd; padding:10px; border-radius:10px; background-color:#f9f9f9;'>
+        """
+        chat_html_end = "</div>"
+        chat_html_content = ""
         for msg in st.session_state.messages:
-            color = "#0b6b3a" if msg["role"] == "assistant" else "#2a2a2a"
-            html += f"<p style='color:{color}; margin:5px 0;'><b>{msg['role'].capitalize()}:</b> {msg['content']}</p>"
-        html += "</div>"
-        chat_box.markdown(html, unsafe_allow_html=True)
+            if msg["role"] == "assistant":
+                color = "#0b6b3a"  # green for assistant
+                prefix = "🤖"
+                align = "left"
+            else:
+                color = "#2a2a2a"  # dark gray for user
+                prefix = "🧑"
+                align = "right"
 
-    # Initial render
+            chat_html_content += f"""
+            <p style='color:{color}; margin:5px 0; text-align:{align};'>
+                <b>{prefix}</b> {msg['content']}
+            </p>
+            """
+
+        chat_box.markdown(chat_html_start + chat_html_content + chat_html_end, unsafe_allow_html=True)
+
+    # ---------------------------
+    # Render chat on page load
+    # ---------------------------
     render_chat()
 
+    # ---------------------------
     # Chat input
-    if prompt := st.chat_input("Ask about sales trends, waste, or forecasting..."):
+    # ---------------------------
+    if prompt := st.chat_input("Ask about revenue, clients, trainers, etc."):
+        # Add user message
         st.session_state.messages.append({"role": "user", "content": prompt})
 
+        # Generate assistant response
         if not os.environ.get("GEMINI_API_KEY"):
             response = "⚠️ Please set your GEMINI_API_KEY to use the chatbot."
         else:
             with st.spinner("Thinking..."):
                 try:
-                    response = chat_with_frostmart(prompt, frost_kb, st.session_state.chat_history)
-                    st.session_state.chat_history.append(f"User: {prompt}")
-                    st.session_state.chat_history.append(f"Assistant: {response}")
+                    response = chat_with_knowledge_base(
+                        prompt,
+                        knowledge_base,
+                        st.session_state.chat_history
+                    )
+                    # Track conversation history
+                    st.session_state.chat_history.append({"role": "user", "content": prompt})
+                    st.session_state.chat_history.append({"role": "assistant", "content": response})
                 except Exception as e:
                     response = f"⚠️ Chat error: {e}"
 
+        # Add assistant message
         st.session_state.messages.append({"role": "assistant", "content": response})
-        render_chat()  # re-render inside the container
+        render_chat()
+        st.rerun()
 
+    # ---------------------------
     # Clear chat button
+    # ---------------------------
     if st.button("🗑️ Clear Chat"):
         st.session_state.messages = []
         st.session_state.chat_history = []
         render_chat()
+        st.rerun()
 
-    # Sample Questions (5 from knowledge base)
+    # ---------------------------
+    # Sample questions
+    # ---------------------------
     with st.expander("💡 Sample Questions"):
         st.markdown("""
-        - What are the top-selling perishable categories this week?
-        - Which stores are showing unexpected demand surges?
-        - Which products contribute the most to perishable waste?
-        - How accurate was last week’s forecast across regions?
-        - How can FrostMart optimize deliveries to reduce spoilage?
+        - What's the total revenue and profit?
+        - Which membership has the most subscribers?
+        - How many active clients do we have?
+        - What's the average age of our members?
+        - What are the top expense categories?
+        - What payment methods are most popular?
+        - What's the most common fitness goal?
+        - What's our profit margin?
         """)
+
+
 
 # FrostMart Report Generation
 st.markdown("---")
