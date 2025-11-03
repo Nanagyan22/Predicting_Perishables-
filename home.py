@@ -14,6 +14,18 @@ from sklearn.preprocessing import LabelEncoder
 from importlib import util as import_util
 from dotenv import load_dotenv
 
+
+import os
+from dotenv import load_dotenv
+
+# Load .env explicitly from the current project directory
+dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path=dotenv_path)
+
+# Debug: check if GEMINI_API_KEY is loaded
+print("Loaded GEMINI_API_KEY:", os.getenv("GEMINI_API_KEY") is not None)
+
+
 # Gemini / FrostMart chat integration 
 
 has_gemini = import_util.find_spec("gemini") is not None
@@ -30,7 +42,7 @@ else:
 
 # App config & header
 
-load_dotenv()
+
 st.set_page_config(
     page_title="FrostMart UK Perishable Demand Prediction System",
     page_icon="🥕",
