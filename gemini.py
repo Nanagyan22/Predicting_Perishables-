@@ -1,13 +1,9 @@
-
 # gemini.py — FrostMart UK Predictive Analytics Assistant
-
 
 import os
 from dotenv import load_dotenv
 
-
 # Load .env explicitly
-
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path)
 
@@ -19,27 +15,33 @@ if not GEMINI_API_KEY:
         "Please create a .env file with GEMINI_API_KEY=your_key_here"
     )
 
-
 # Optional: Google Gemini AI
-
 try:
     import google.genai as genai
 except ModuleNotFoundError:
     genai = None
 
+# DOCX reader
+try:
+    import docx
+except ModuleNotFoundError:
+    docx = None
+
 
 # Load Knowledge Base
-
 def load_knowledge_base(path: str) -> str:
-    """Load the FrostMart knowledge base from a Markdown file."""
+    """Load the FrostMart knowledge base from a DOCX file."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"Knowledge base file not found: {path}")
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+    if docx is None:
+        raise ModuleNotFoundError("python-docx module not installed. Install via 'pip install python-docx'.")
+    
+    document = docx.Document(path)
+    full_text = "\n".join([para.text for para in document.paragraphs])
+    return full_text
 
 
 # Gemini Client
-
 def get_client():
     """Create Gemini AI client."""
     if genai is None:
@@ -50,7 +52,6 @@ def get_client():
 
 
 # Chat with FrostMart AI
-
 def chat_with_frostmart(user_question: str, knowledge_base: str, chat_history: list = None) -> str:
     """Chat with AI using the FrostMart UK knowledge base."""
     if genai is None:
@@ -87,8 +88,8 @@ KNOWLEDGE BASE:
     except Exception as e:
         return f"⚠️ Chat error: {str(e)}"
 
-# Generate FrostMart Analytics Report
 
+# Generate FrostMart Analytics Report
 def generate_frostmart_report(knowledge_base: str) -> str:
     """Generate a detailed business analytics report."""
     if genai is None:
@@ -117,10 +118,9 @@ Create a structured report with headings, numeric metrics, and clear recommendat
 
 
 # Example Usage (run locally)
-
 if __name__ == "__main__":
     try:
-        kb_text = load_knowledge_base("inference/frostmart_knowledge_base.md")
+        kb_text = load_knowledge_base("inference/frostmart_knowledge_base.docx")
         print(chat_with_frostmart("Which category had the most wastage?", kb_text))
         print(generate_frostmart_report(kb_text))
     except Exception as err:
