@@ -1,16 +1,31 @@
+
 # gemini.py — FrostMart UK Predictive Analytics Assistant
 
-import os
-from dotenv import load_dotenv  
 
-# Load .env only if running locally 
-load_dotenv()
+import os
+from dotenv import load_dotenv
+
+
+# Load .env explicitly
+
+dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path)
+
+# Get API key
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise ValueError(
+        "⚠️ GEMINI_API_KEY not found in environment variables. "
+        "Please create a .env file with GEMINI_API_KEY=your_key_here"
+    )
+
+
+# Optional: Google Gemini AI
 
 try:
-    import google.genai as genai  
+    import google.genai as genai
 except ModuleNotFoundError:
     genai = None
-
 
 
 # Load Knowledge Base
@@ -23,77 +38,64 @@ def load_knowledge_base(path: str) -> str:
         return f.read()
 
 
-
 # Gemini Client
 
 def get_client():
-    """Get or create Gemini client using the modern pattern."""
+    """Create Gemini AI client."""
     if genai is None:
         raise ModuleNotFoundError(
-            "google.genai module not installed. Please use 'pip install google-genai'."
+            "google.genai module not installed. Install via 'pip install google-genai'."
         )
-    
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GEMINI_API_KEY not found in environment variables")
-    
-    return genai.Client(api_key=api_key)
+    return genai.Client(api_key=GEMINI_API_KEY)
 
 
-# AI CHAT FUNCTION — FrostMart UK
+# Chat with FrostMart AI
 
 def chat_with_frostmart(user_question: str, knowledge_base: str, chat_history: list = None) -> str:
-    """Chat with AI using the FrostMart UK knowledge base as context."""
-    system_prompt = f"""You are a professional AI Assistant for FrostMart UK — a national retail chain specializing in fresh and perishable goods.
+    """Chat with AI using the FrostMart UK knowledge base."""
+    if genai is None:
+        return "⚠️ google.genai module not installed. Cannot chat."
+
+    if chat_history is None:
+        chat_history = []
+
+    system_prompt = f"""
+You are a professional AI Assistant for FrostMart UK — a national retail chain specializing in perishable goods.
 
 YOUR ROLE:
 - Provide insights strictly from the FrostMart UK knowledge base and data
 - Support responses with data-driven evidence (e.g., R², wastage %, revenue lift)
 - Maintain a professional, factual tone suitable for business reports
-- Use proper formatting for numbers (£, commas, %, decimals)
-- If a question is outside FrostMart UK data, politely explain you can only answer within the FrostMart context
-
-RESPONSE GUIDELINES:
-1. Start with a clear and factual answer
-2. Support with exact metrics or KPIs from the data
-3. Use short bullet points for clarity
-4. Keep answers under 10 sentences
-5. Be analytical, concise, and data-focused
-6. No markdown symbols (asterisks, italics, etc.)
-7. Write in clean, readable English suitable for executives
+- Format numbers properly (£, commas, %, decimals)
+- If a question is outside FrostMart UK data, politely say you can only answer within FrostMart context
 
 KNOWLEDGE BASE:
 {knowledge_base}
 """
-
     try:
         client = get_client()
-        if chat_history is None:
-            chat_history = []
-
         messages = [system_prompt] + [m["content"] for m in chat_history[-10:]] + [f"User Question: {user_question}"]
         full_prompt = "\n\n".join(messages)
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=full_prompt,
-            config={
-                "temperature": 0.3,
-                "max_output_tokens": 1024,
-            },
+            config={"temperature": 0.3, "max_output_tokens": 1024},
         )
 
         return response.text if response.text else "No response generated."
-
     except Exception as e:
         return f"⚠️ Chat error: {str(e)}"
 
-
-# COMPREHENSIVE BUSINESS REPORT GENERATOR — FrostMart UK
+# Generate FrostMart Analytics Report
 
 def generate_frostmart_report(knowledge_base: str) -> str:
-    """Generate a detailed, professional FrostMart UK predictive analytics report."""
-    prompt = f"""You are Francis Afful Gyan, a Business Intelligence Specialist for FrostMart UK.
+    """Generate a detailed business analytics report."""
+    if genai is None:
+        return "⚠️ google.genai module not installed. Cannot generate report."
+
+    prompt = f"""
+You are Francis Afful Gyan, a Business Intelligence Specialist for FrostMart UK.
 Generate a comprehensive business analytics report using the knowledge base below.
 Include insights on sales forecasting, wastage reduction, and operational optimization.
 
@@ -102,26 +104,19 @@ KNOWLEDGE BASE:
 
 Create a structured report with headings, numeric metrics, and clear recommendations.
 """
-
     try:
         client = get_client()
         response = client.models.generate_content(
             model="gemini-2.5-pro",
             contents=prompt,
-            config={
-                "temperature": 0.4,
-                "max_output_tokens": 8192,
-            },
+            config={"temperature": 0.4, "max_output_tokens": 8192},
         )
-
         return response.text if response.text else "Unable to generate report."
-
     except Exception as e:
         return f"⚠️ Report generation failed: {str(e)}"
 
 
-
-# EXAMPLE USAGE
+# Example Usage (run locally)
 
 if __name__ == "__main__":
     try:

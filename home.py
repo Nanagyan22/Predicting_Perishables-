@@ -15,15 +15,18 @@ from importlib import util as import_util
 from dotenv import load_dotenv
 
 
-import os
-from dotenv import load_dotenv
 
-# Load .env explicitly from the current project directory
+# Load the .env file from the same folder as app.py
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
-load_dotenv(dotenv_path=dotenv_path)
+load_dotenv(dotenv_path)
 
-# Debug: check if GEMINI_API_KEY is loaded
-print("Loaded GEMINI_API_KEY:", os.getenv("GEMINI_API_KEY") is not None)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not GEMINI_API_KEY:
+    st.error("⚠️ GEMINI_API_KEY not found. Please check your .env file.")
+else:
+    print("✅ GEMINI_API_KEY loaded successfully!")
+
 
 
 # Gemini / FrostMart chat integration 
