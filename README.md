@@ -38,7 +38,7 @@ This project delivers an end‑to‑end **machine learning and data‑driven sol
 
 ---
 
-**🌐 Live Demo**: [https://share.streamlit.io/Nanagyan22/Predicting_Perishables-/main/app.py](https://share.streamlit.io/Nanagyan22/Predicting_Perishables-/main/app.py)
+**🌐 Live Demo**: [https://perishables.streamlit.app/](https://perishables.streamlit.app/)
 
 **📊 Project Status**: Active Development
 
