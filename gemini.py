@@ -1,6 +1,5 @@
-# ===============================================================
 # gemini.py — FrostMart UK Predictive Analytics Assistant
-# ===============================================================
+
 import os
 
 try:
@@ -9,9 +8,8 @@ try:
 except ModuleNotFoundError:
     genai = None
 
-# -------------------------
 # Load Knowledge Base
-# -------------------------
+
 def load_knowledge_base(path: str) -> str:
     """Load the FrostMart knowledge base from a Markdown file."""
     if not os.path.exists(path):
@@ -20,9 +18,8 @@ def load_knowledge_base(path: str) -> str:
         return f.read()
 
 
-# -------------------------
 # Gemini Client
-# -------------------------
+
 def get_client():
     """Get or create Gemini client using the modern pattern."""
     if genai is None:
@@ -37,9 +34,9 @@ def get_client():
     return genai.Client(api_key=api_key)
 
 
-# ===============================================================
+
 # AI CHAT FUNCTION — FrostMart UK
-# ===============================================================
+
 def chat_with_frostmart(user_question: str, knowledge_base: str, chat_history: list = None) -> str:
     """
     Chat with AI using the FrostMart UK knowledge base as context.
@@ -93,9 +90,9 @@ KNOWLEDGE BASE:
         return f"⚠️ Chat error: {str(e)}"
 
 
-# ===============================================================
+
 # COMPREHENSIVE BUSINESS REPORT GENERATOR — FrostMart UK
-# ===============================================================
+
 def generate_frostmart_report(knowledge_base: str) -> str:
     """
     Generate a detailed, professional FrostMart UK predictive analytics report.
@@ -130,9 +127,9 @@ Create a structured report with headings, numeric metrics, and clear recommendat
         return f"⚠️ Report generation failed: {str(e)}"
 
 
-# ===============================================================
+
 # EXAMPLE USAGE
-# ===============================================================
+
 if __name__ == "__main__":
     # Ensure GEMINI_API_KEY is set in environment for this block to run
     try:
