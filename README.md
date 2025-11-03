@@ -1,68 +1,48 @@
-# 🤖 FrostMart AI Chat Assistant
+![Header](Header.png)
+# 🥕 FrostMart UK Perishable Demand Prediction System
 
-Powered by **Gemini 2.5 Flash**, this interactive AI assistant helps you ask **data-driven questions** directly about FrostMart’s predictive analytics and performance metrics.
+> **Machine Learning Perishable Demand Forecasting Platform**  
+---
 
-### Example Questions:
-- Which product category has the highest wastage?
-- How does temperature affect Bakery sales?
-- What’s the estimated savings from a 1% waste reduction?
-- Which region achieved the highest sales efficiency?
-- What are the top predictors of demand?
+## 🚀 Overview
 
-🗨️ *The chat window is located on the right-hand side of the Streamlit app.*
+FrostMart UK faces a critical challenge — **managing perishable goods efficiently**.  
+This project delivers an end‑to‑end **machine learning and data‑driven solution** that predicts weekly product demand, minimizes waste, and empowers procurement teams with actionable recommendations.
+
+**Deliverables:**
+- 🎯 Real‑time demand prediction for single products  
+- 📈 Batch forecasting for multiple products and stores  
+- 🧠 Feature-level insights and model explainability for operational decisions  
+
+---
+![Prediction](Prediction.png)
+---
+![Model](Model.png)
+---
+
+## 🧩 Key Features
+
+✅ XGBoost regressor for high-accuracy demand forecasting  
+✅ Intuitive Streamlit dashboard with tabs for single product, batch, and model insights  
+✅ Integrated AI chat assistant powered by Google Gemini for sales and wastage queries  
+✅ Batch CSV upload and detailed forecasting report download  
+✅ Human-readable procurement recommendations with buffer suggestions  
+✅ Feature importance and performance metrics for model transparency  
 
 ---
 
-# 📄 Generate Full Business Report
-
-Click the **“📄 Generate Full FrostMart Report”** button inside the app to automatically generate a **comprehensive business analytics report** powered by **Gemini 2.5 Pro**.
-
-Each report is created dynamically from FrostMart’s internal knowledge base and includes:
-
-- Executive Summary  
-- Model Evaluation & Insights  
-- Business Intelligence Findings  
-- Financial Impact & Recommendations  
-
-📊 The generated report provides structured analysis on performance, wastage reduction potential, and predictive accuracy.
+**Francis Afful Gyan**    
+📧 Email: francisaffulgyan@gmail.com  
+🔗 LinkedIn: [https://www.linkedin.com/in/francis-afful-gyan-2b27a5153/]  
+📅 Date: November 2025
 
 ---
 
-# 🧾 Model Summary
+**🌐 Live Demo**: [https://share.streamlit.io/Nanagyan22/Predicting_Perishables-/main/app.py](https://share.streamlit.io/Nanagyan22/Predicting_Perishables-/main/app.py)
 
-| Model | Train R² | Test R² | RMSE | MAE |
-|--------|-----------|---------|------|------|
-| Linear Regression | 0.65 | 0.60 | 15.8 | 10.2 |
-| Random Forest | 0.82 | 0.80 | 13.5 | 9.6 |
-| **Gradient Boosting Regressor (Final)** | **0.87** | **0.85** | **13.7** | **9.4** |
+**📊 Project Status**: Active Development
 
----
+**⭐ If you find this project useful, please consider giving it a star!**
 
-# 🔑 Top Predictors
-
-| Feature | Importance (%) |
-|----------|----------------|
-| Marketing Spend | 21.3 |
-| Avg Temperature | 18.9 |
-| Shelf Life Days | 13.5 |
-| Region | 10.7 |
-| Rainfall | 9.2 |
-
-These features contributed most significantly to FrostMart’s weekly demand forecasting accuracy across regional and product-level models.
-
----
-
-# ☁️ Deploying on Streamlit Cloud
-
-To deploy **FrostMart Perishable Demand Prediction System** on **Streamlit Cloud**:
-
-1. Upload your project folder to **GitHub**.  
-2. Visit [https://perishables.streamlit.app/](https://perishables.streamlit.app/) → click **New app**.  
-3. Select your repository and choose `streamlit_app.py` as the **entry file**.  
-4. Go to **App Settings → Secrets** and add your Gemini API key:
-
-
-
-
----
-
+## Thank You
+![Thank You](Thankyou1.png)
