@@ -197,6 +197,8 @@ left_col, chat_col = st.columns([3, 1])
 
 # RIGHT: Gemini Chat Assistant
 
+# RIGHT: Gemini Chat Assistant
+
 with chat_col:
     st.markdown("### 🤖 FrostMart UK AI Chat Assistant")
     st.markdown("""
@@ -204,13 +206,30 @@ with chat_col:
     supplier performance, or forecasting insights across FrostMart stores.*
     """)
 
-    # Initialize session states
+    # --- Load API key and Knowledge Base ---
+    load_dotenv()
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    kb_path = os.path.join("inference", "frostmart_knowledge_base.md")
+    frost_kb = ""
+    if os.path.exists(kb_path):
+        try:
+            with open(kb_path, "r", encoding="utf-8") as f:
+                frost_kb = f.read()
+        except Exception as e:
+            st.warning(f"⚠️ Could not load FrostMart knowledge base: {e}")
+    else:
+        st.warning("⚠️ FrostMart knowledge base file not found in /inference directory.")
+
+    if not gemini_key:
+        st.error("⚠️ GEMINI_API_KEY not found. Please check your .env file.")
+
+    # --- Initialize chat states ---
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Chat history display
+    # --- Chat UI container ---
     chat_container = st.container()
     with chat_container:
         st.markdown(
@@ -222,29 +241,37 @@ with chat_col:
                 st.markdown(message["content"])
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # User input for the chat
+    # --- Chat Input ---
     if prompt := st.chat_input("Ask about sales, demand, wastage, or forecasting performance..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         if chat_with_frostmart is None:
             response = "⚠️ Chat system not configured. Ensure `gemini.py` is available."
+        elif not gemini_key:
+            response = "⚠️ API key missing. Please set GEMINI_API_KEY in your .env file."
+        elif not frost_kb:
+            response = "⚠️ FrostMart knowledge base not loaded. Please check the file path."
         else:
             with st.spinner("Analyzing FrostMart knowledge base..."):
                 try:
-                    response = chat_with_frostmart(prompt, "FrostMart knowledge base", st.session_state.chat_history)
+                    response = chat_with_frostmart(
+                        prompt,
+                        frost_kb,
+                        st.session_state.chat_history
+                    )
                 except Exception as e:
                     response = f"⚠️ Chat error: {e}"
         st.session_state.messages.append({"role": "assistant", "content": response})
         st.session_state.chat_history.append({"user": prompt, "assistant": response})
         st.rerun()
 
-    # Clear chat button
+    # --- Clear Chat Button ---
     if st.button("🗑️ Clear Chat", key="clear_chat"):
         st.session_state.messages, st.session_state.chat_history = [], []
         st.rerun()
 
     st.markdown("---")
 
-    # Sample questions for user guidance
+    # Sample Questions 
     with st.expander("💡 Sample Questions"):
         st.markdown("""
         Here are some example queries you can ask the FrostMart AI Assistant:
@@ -266,7 +293,6 @@ with chat_col:
             - Can you summarize the overall forecasting performance?
         """)
 
-    st.markdown("---")
 
 
 # 📊 FrostMart UK Full Analytics Report Generation
@@ -281,14 +307,28 @@ if generate_frostmart_report is not None:
     and forecasting accuracy across stores and product categories.
     """)
 
+    # Load FrostMart knowledge base
+    kb_path = os.path.join("inference", "frostmart_knowledge_base.md")
+    frost_kb = ""
+    if os.path.exists(kb_path):
+        try:
+            with open(kb_path, "r", encoding="utf-8") as f:
+                frost_kb = f.read()
+        except Exception as e:
+            st.warning(f"⚠️ Could not load FrostMart knowledge base: {e}")
+    else:
+        st.warning("⚠️ FrostMart knowledge base file not found in /inference directory.")
+
     # Main button to trigger report
     if st.button("🚀 Click Here to Generate Full Report", use_container_width=True, type="primary"):
         with st.spinner("Generating comprehensive FrostMart UK analytics report..."):
             try:
-                # Generate report using Gemini
-                report_text = generate_frostmart_report("FrostMart knowledge base and model insights")
+                # Use the real knowledge base text from file
+                if not frost_kb:
+                    raise ValueError("Knowledge base is empty or could not be loaded.")
 
-                # Success confirmation
+                report_text = generate_frostmart_report(frost_kb)
+
                 st.success("✅ Report generated successfully!")
 
                 # Download option
@@ -308,7 +348,7 @@ if generate_frostmart_report is not None:
 
             except Exception as e:
                 st.error(f"❌ Report generation failed: {e}")
-                st.info("💡 Ensure that `gemini.py` is available and correctly configured.")
+                st.info("💡 Ensure that `gemini.py` is configured correctly and the knowledge base file is present.")
 else:
     st.info("⚠️ Report generator unavailable. Please add `gemini.py` with the function `generate_frostmart_report()` to enable this feature.")
 
