@@ -225,7 +225,7 @@ with chat_col:
     st.markdown("### 🤖 AI Assistant")
     st.markdown("*Ask questions about the dataset*")
 
-    # Initialize session states if not present
+    # Initialize session states
     if 'chat_history' not in st.session_state:
         st.session_state.chat_history = []
     if 'messages' not in st.session_state:
@@ -264,9 +264,7 @@ with chat_col:
 
         chat_box.markdown(chat_html_start + chat_html_content + chat_html_end, unsafe_allow_html=True)
 
-    # ---------------------------
     # Render chat on page load
-    # ---------------------------
     render_chat()
 
     # ---------------------------
@@ -277,14 +275,15 @@ with chat_col:
         st.session_state.messages.append({"role": "user", "content": prompt})
 
         # Generate assistant response
-        if not os.environ.get("GEMINI_API_KEY"):
+        if not GEMINI_API_KEY:
             response = "⚠️ Please set your GEMINI_API_KEY to use the chatbot."
         else:
             with st.spinner("Thinking..."):
                 try:
-                    response = chat_with_knowledge_base(
+                    # Use the correct function
+                    response = chat_with_frostmart(
                         prompt,
-                        knowledge_base,
+                        frost_kb,
                         st.session_state.chat_history
                     )
                     # Track conversation history
