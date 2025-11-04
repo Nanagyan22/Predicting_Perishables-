@@ -1,11 +1,10 @@
-# app.py
+# import libraries
 import os
 import pickle
 import joblib
 import json
 from math import ceil
 from typing import Any, Dict, List, Tuple
-
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -15,6 +14,7 @@ from importlib import util as import_util
 from dotenv import load_dotenv
 import docx
 from gemini import chat_with_frostmart, generate_frostmart_report, load_knowledge_base
+
 
 
 # Load the .env file from the same folder as app.py
@@ -191,9 +191,8 @@ def suggested_order(predicted_units: float, buffer_pct: float = 0.05) -> int:
     except Exception:
         return 0
 
-# -----------------------
 # Load DOCX Knowledge Base
-# -----------------------
+
 kb_path = os.path.join("inference", "frostmart_knowledge_base.docx")
 frost_kb = ""
 if os.path.exists(kb_path):
@@ -208,22 +207,12 @@ else:
 # Layout columns: left main content, right chat assistant
 left_col, chat_col = st.columns([3, 1])
 
-# -----------------------
+
 # RIGHT: Gemini Chat Assistant
-# -----------------------
-# RIGHT: Gemini / FrostMart Chat Assistant
-# -----------------------
-# RIGHT: Gemini Chat Assistant
-# -----------------------
-# -----------------------
-# Right: AI Chat Assistant
-# -----------------------
-# -----------------------
-# RIGHT: Gemini Chat Assistant
-# -----------------------
+# FrostMart UK AI Assistant
 with chat_col:
     st.markdown("### 🤖 AI Assistant")
-    st.markdown("*Ask questions about the dataset*")
+    st.markdown("*Ask questions about the dataset or FrostMart operations*")
 
     # Initialize session states
     if 'chat_history' not in st.session_state:
@@ -231,84 +220,66 @@ with chat_col:
     if 'messages' not in st.session_state:
         st.session_state.messages = []
 
-    # ---------------------------
-    # Create a reserved container for chat
-    # ---------------------------
+    # Reserved container for chat
     chat_height = 700
     chat_box = st.empty()
 
-    # ---------------------------
-    # Function to render chat messages with emojis and alignment
-    # ---------------------------
+    # Render chat messages
     def render_chat():
-        chat_html_start = f"""
-        <div style='height:{chat_height}px; overflow-y:auto; border:1px solid #ddd; padding:10px; border-radius:10px; background-color:#f9f9f9;'>
+        # Start scrollable chat container
+        chat_container = f"""
+        <div style='height:{chat_height}px; overflow-y:auto; overflow-x:hidden; padding:10px; border:1px solid #ddd; border-radius:10px; background-color:#f9f9f9; word-wrap:break-word;'>
         """
-        chat_html_end = "</div>"
-        chat_html_content = ""
+        chat_content = ""
         for msg in st.session_state.messages:
             if msg["role"] == "assistant":
-                color = "#0b6b3a"  # green for assistant
-                prefix = "🤖"
+                color = "#0b6b3a"  # green
+                prefix = "🤖 Assistant:"
                 align = "left"
             else:
-                color = "#2a2a2a"  # dark gray for user
-                prefix = "🧑"
+                color = "#2a2a2a"  # dark gray
+                prefix = "🧑 You:"
                 align = "right"
 
-            chat_html_content += f"""
-            <p style='color:{color}; margin:5px 0; text-align:{align};'>
-                <b>{prefix}</b> {msg['content']}
-            </p>
-            """
+            # Plain text output inside the container
+            chat_content += f"<div style='text-align:{align}; color:{color}; margin:5px 0;'>{prefix} {msg['content']}</div>"
 
-        chat_box.markdown(chat_html_start + chat_html_content + chat_html_end, unsafe_allow_html=True)
+        chat_container += chat_content
+        chat_container += "</div>"
+        chat_box.markdown(chat_container, unsafe_allow_html=True)
 
-    # Render chat on page load
+    # Initial render
     render_chat()
 
-    # ---------------------------
     # Chat input
-    # ---------------------------
-    if prompt := st.chat_input("Ask about revenue, clients, trainers, etc."):
-        # Add user message
+    if prompt := st.chat_input("Ask a question..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # Generate assistant response
-        if not GEMINI_API_KEY:
-            response = "⚠️ Please set your GEMINI_API_KEY to use the chatbot."
+        if not GEMINI_API_KEY or chat_with_frostmart is None:
+            response = "⚠️ Chat assistant unavailable. Set GEMINI_API_KEY and load gemini.py correctly."
+            st.session_state.chat_history.append({"role": "user", "content": prompt})
+            st.session_state.chat_history.append({"role": "assistant", "content": response})
         else:
             with st.spinner("Thinking..."):
                 try:
-                    # Use the correct function
-                    response = chat_with_frostmart(
-                        prompt,
-                        frost_kb,
-                        st.session_state.chat_history
-                    )
-                    # Track conversation history
+                    response = chat_with_frostmart(prompt, frost_kb, st.session_state.chat_history)
                     st.session_state.chat_history.append({"role": "user", "content": prompt})
                     st.session_state.chat_history.append({"role": "assistant", "content": response})
                 except Exception as e:
                     response = f"⚠️ Chat error: {e}"
 
-        # Add assistant message
         st.session_state.messages.append({"role": "assistant", "content": response})
         render_chat()
         st.rerun()
 
-    # ---------------------------
-    # Clear chat button
-    # ---------------------------
+    # Clear chat
     if st.button("🗑️ Clear Chat"):
         st.session_state.messages = []
         st.session_state.chat_history = []
         render_chat()
         st.rerun()
 
-    # ---------------------------
-    # Sample questions
-    # ---------------------------
+    # Sample questions outside the box
     with st.expander("💡 Sample Questions"):
         st.markdown("""
         - What's the total revenue and profit?
@@ -320,8 +291,6 @@ with chat_col:
         - What's the most common fitness goal?
         - What's our profit margin?
         """)
-
-
 
 # FrostMart Report Generation
 st.markdown("---")
@@ -369,9 +338,7 @@ else:
     st.info("⚠️ Report generator unavailable. Please add `gemini.py` with the function `generate_frostmart_report()` to enable this feature.")
 
 
-# -----------------------
 # LEFT: Main App Tabs
-# -----------------------
 with left_col:
     tab1, tab2, tab3, tab4 = st.tabs(
         ["📊 Introduction & Objectives", "🔮 Single Product Prediction", "📈 Batch Processing", "🧠 Model Details"]
