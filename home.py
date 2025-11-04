@@ -239,7 +239,7 @@ with chat_col:
             else:
                 color = "#2a2a2a"  # dark gray
                 prefix = "🧑 You:"
-                align = "right"
+                align = "left"
 
             # Plain text output inside the container
             chat_content += f"<div style='text-align:{align}; color:{color}; margin:5px 0;'>{prefix} {msg['content']}</div>"
@@ -251,26 +251,48 @@ with chat_col:
     # Initial render
     render_chat()
 
-    # Chat input
+    # Chat Input and AI Interaction
+    
     if prompt := st.chat_input("Ask a question..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
 
         if not GEMINI_API_KEY or chat_with_frostmart is None:
-            response = "⚠️ Chat assistant unavailable. Set GEMINI_API_KEY and load gemini.py correctly."
+            response = (
+                "⚠️ Chat assistant unavailable. Please ensure the GEMINI_API_KEY "
+                "is configured correctly and the gemini.py module is present."
+            )
             st.session_state.chat_history.append({"role": "user", "content": prompt})
             st.session_state.chat_history.append({"role": "assistant", "content": response})
+
         else:
-            with st.spinner("Thinking..."):
+            with st.spinner("🤔 Thinking... generating insights..."):
                 try:
-                    response = chat_with_frostmart(prompt, frost_kb, st.session_state.chat_history)
+                    raw_response = chat_with_frostmart(prompt, frost_kb, st.session_state.chat_history)
+
+                    # ✨ Clean and make the AI response sound more conversational
+                    response = (
+                        raw_response.replace("**", "")  # remove Markdown
+                        .replace("#", "")                # remove stray headings
+                        .strip()
+                    )
+
+                    # Improve tone and readability
+                    response = response.replace(". ", ".  ")
+                    response = response.replace("\n", "<br>")
+
+                    # Append to conversation history
                     st.session_state.chat_history.append({"role": "user", "content": prompt})
                     st.session_state.chat_history.append({"role": "assistant", "content": response})
-                except Exception as e:
-                    response = f"⚠️ Chat error: {e}"
 
+                except Exception as e:
+                    response = f"⚠️ Sorry, something went wrong while processing your request: {e}"
+
+        # Append formatted assistant message and rerender
         st.session_state.messages.append({"role": "assistant", "content": response})
         render_chat()
         st.rerun()
+
+
 
     # Clear chat
     if st.button("🗑️ Clear Chat"):
@@ -279,19 +301,16 @@ with chat_col:
         render_chat()
         st.rerun()
 
-       # Sample questions outside the box
+        # Sample questions outside the box
     with st.expander("💡 Sample Questions"):
         st.markdown("""
         - What is the total estimated annual loss from wastage and overstocking?
         - Which product categories have the highest wastage rates?
         - Which regions perform best in terms of sales and efficiency?
-        - How much improvement in profitability is expected after deploying the AI model?
         - What are the performance metrics (R², RMSE, MAPE) of the Gradient Boosting model?
         - How does the AI model help reduce waste and optimize ordering?
-        - What business recommendations does the AI provide for FrostMart UK?
-        - What are the main modules of the Streamlit AI system and their functions?
+       
         """)
-
 
 # FrostMart Report Generation
 st.markdown("---")
@@ -302,7 +321,7 @@ if generate_frostmart_report is not None:
     knowledge base — summarizing trends in sales, wastage, supply chain performance, 
     and forecasting accuracy across stores and product categories.
     """)
-    kb_path = os.path.join("inference", "frostmart_knowledge_base.md")
+    kb_path = os.path.join("inference", "frostmart_knowledge_base.docx")
     frost_kb = ""
     if os.path.exists(kb_path):
         try:
@@ -330,7 +349,11 @@ if generate_frostmart_report is not None:
                     mime="text/plain"
                 )
 
-                st.text_area("📄 Report Preview", report_text[:3000], height=400)
+                st.subheader("📊 FrostMart UK Business Insights Report")
+                st.markdown(
+                    f"<div style='white-space: pre-wrap; font-size: 16px; line-height: 1.6; color: #1a1a1a;'>{report_text}</div>",
+                    unsafe_allow_html=True,
+)
 
             except Exception as e:
                 st.error(f"❌ Report generation failed: {e}")
