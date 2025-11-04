@@ -279,18 +279,19 @@ with chat_col:
         render_chat()
         st.rerun()
 
-    # Sample questions outside the box
+       # Sample questions outside the box
     with st.expander("💡 Sample Questions"):
         st.markdown("""
-        - What's the total revenue and profit?
-        - Which membership has the most subscribers?
-        - How many active clients do we have?
-        - What's the average age of our members?
-        - What are the top expense categories?
-        - What payment methods are most popular?
-        - What's the most common fitness goal?
-        - What's our profit margin?
+        - What is the total estimated annual loss from wastage and overstocking?
+        - Which product categories have the highest wastage rates?
+        - Which regions perform best in terms of sales and efficiency?
+        - How much improvement in profitability is expected after deploying the AI model?
+        - What are the performance metrics (R², RMSE, MAPE) of the Gradient Boosting model?
+        - How does the AI model help reduce waste and optimize ordering?
+        - What business recommendations does the AI provide for FrostMart UK?
+        - What are the main modules of the Streamlit AI system and their functions?
         """)
+
 
 # FrostMart Report Generation
 st.markdown("---")
