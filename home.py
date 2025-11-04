@@ -1,4 +1,4 @@
-# import libraries
+# home.py - FrostMart UK Perishable Demand Prediction System (fixed)
 import os
 import pickle
 import joblib
@@ -12,10 +12,15 @@ import xgboost as xgb
 from sklearn.preprocessing import LabelEncoder
 from importlib import util as import_util
 from dotenv import load_dotenv
-import docx
-from gemini import chat_with_frostmart, generate_frostmart_report, load_knowledge_base
 
+# docx is optional but preferred for loading .docx KB
+try:
+    import docx
+except Exception:
+    docx = None
 
+# ---- DO NOT import gemini directly here; import dynamically further below ----
+# from gemini import chat_with_frostmart, generate_frostmart_report, load_knowledge_base
 
 # Load the .env file from the same folder as app.py
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -23,31 +28,35 @@ load_dotenv(dotenv_path)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not GEMINI_API_KEY:
-    st.error("⚠️ GEMINI_API_KEY not found. Please check your .env file.")
-else:
-    print("✅ GEMINI_API_KEY loaded successfully!")
-
-# Gemini / FrostMart chat integration
+# Safe dynamic import of gemini module (if present)
 has_gemini = import_util.find_spec("gemini") is not None
 if has_gemini:
     try:
-        from gemini import chat_with_frostmart, generate_frostmart_report, load_knowledge_base
+        # import functions if available
+        from gemini import chat_with_frostmart, generate_frostmart_report, load_knowledge_base  # type: ignore
     except Exception:
-        chat_with_frostmart = None
-        generate_frostmart_report = None
-        load_knowledge_base = None
+        chat_with_frostmart = None  # type: ignore
+        generate_frostmart_report = None  # type: ignore
+        load_knowledge_base = None  # type: ignore
 else:
-    chat_with_frostmart = None
-    generate_frostmart_report = None
-    load_knowledge_base = None
+    chat_with_frostmart = None  # type: ignore
+    generate_frostmart_report = None  # type: ignore
+    load_knowledge_base = None  # type: ignore
 
+if not GEMINI_API_KEY:
+    # show but continue: features degrade gracefully
+    st.warning("⚠️ GEMINI_API_KEY not found. Gemini chat/report features will be disabled.")
+else:
+    print("✅ GEMINI_API_KEY loaded (if provided).")
+
+# -----------------------
 # App config & header
+# -----------------------
 st.set_page_config(
     page_title="FrostMart UK Perishable Demand Prediction System",
     page_icon="🥕",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
@@ -56,7 +65,6 @@ st.markdown(
     <h1>🥕 FROSTMART UK</h1>
     <h3>Perishable Demand Prediction System</h3>
     <p>Demand forecasting · Waste reduction · Inventory optimization</p>
-    <p style="font-size:14px; margin-top:10px;"></p>
 </div>
 <style>
 .main-header {
@@ -67,13 +75,14 @@ st.markdown(
     margin: -30px -30px 30px -30px;
     border-radius: 0 0 10px 10px;
 }
-.stAlert > div { padding: 1rem; }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
+# -----------------------
 # Inference artifact paths
+# -----------------------
 INFERENCE_DIR = "inference"
 MODEL_FILENAME = "xgboost_model.pkl"
 FEATURES_FILENAME = "xgboost_features.json"
@@ -83,7 +92,9 @@ MODEL_PATH = os.path.join(INFERENCE_DIR, MODEL_FILENAME)
 FEATURES_PATH = os.path.join(INFERENCE_DIR, FEATURES_FILENAME)
 ENCODINGS_PATH = os.path.join(INFERENCE_DIR, ENCODINGS_FILENAME)
 
+# -----------------------
 # Load model + artifacts
+# -----------------------
 @st.cache_resource
 def load_assets(inference_dir: str = INFERENCE_DIR) -> Tuple[Any, List[str], Any]:
     # model
@@ -137,15 +148,19 @@ def load_assets(inference_dir: str = INFERENCE_DIR) -> Tuple[Any, List[str], Any
 
     return model, feature_names, encodings
 
+
 model, feature_names, encodings = load_assets()
 
+# -----------------------
 # Helper functions
+# -----------------------
 def prepare_input_data(input_dict: Dict[str, Any]) -> pd.DataFrame:
     prepared = {feat: 0.0 for feat in feature_names}
     for k, v in input_dict.items():
         if k in prepared:
             prepared[k] = v
     return pd.DataFrame([prepared], columns=feature_names)
+
 
 def encode_input_data(df: pd.DataFrame, encodings: Any = None) -> pd.DataFrame:
     df_encoded = df.copy()
@@ -172,6 +187,7 @@ def encode_input_data(df: pd.DataFrame, encodings: Any = None) -> pd.DataFrame:
                 df_encoded[col] = df_encoded[col].astype(str).map(lambda x: hash(x) % 10000)
     return df_encoded
 
+
 def make_prediction(input_df: pd.DataFrame) -> float:
     try:
         df_encoded = encode_input_data(input_df, encodings)
@@ -185,223 +201,257 @@ def make_prediction(input_df: pd.DataFrame) -> float:
         st.error(f" Prediction failed: {e}")
         return None
 
+
 def suggested_order(predicted_units: float, buffer_pct: float = 0.05) -> int:
     try:
         return int(ceil(predicted_units * (1 + float(buffer_pct))))
     except Exception:
         return 0
 
-# Load DOCX Knowledge Base
 
-kb_path = os.path.join("inference", "frostmart_knowledge_base.md")
+# -----------------------
+# Load DOCX Knowledge Base (safe)
+# -----------------------
+# Prefer using python-docx to read .docx files; do not open .docx with open(..., 'r')
+def safe_load_knowledge_base_docx(path: str) -> str:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Knowledge base file not found: {path}")
+    if docx is None:
+        raise ModuleNotFoundError("python-docx not installed. Run: pip install python-docx")
+    document = docx.Document(path)
+    return "\n".join([p.text for p in document.paragraphs if p.text.strip()])
+
+
+# Try to load inference/frostmart_knowledge_base.docx
+kb_path_docx = os.path.join(INFERENCE_DIR, "frostmart_knowledge_base.docx")
+kb_path_md = os.path.join(INFERENCE_DIR, "frostmart_knowledge_base.md")
 frost_kb = ""
-if os.path.exists(kb_path):
-    try:
-        doc = docx.Document(kb_path)
-        frost_kb = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-    except Exception as e:
-        st.warning(f"⚠️ Could not load FrostMart knowledge base: {e}")
-else:
-    st.warning("⚠️ FrostMart knowledge base file not found in /inference directory.")
 
+# Prefer gemini.load_knowledge_base if available (user provided gemini.py)
+if load_knowledge_base is not None:
+    try:
+        frost_kb = load_knowledge_base(kb_path_docx)  # type: ignore
+    except Exception:
+        # fallthrough to safe loader
+        try:
+            frost_kb = safe_load_knowledge_base_docx(kb_path_docx)
+        except Exception:
+            # try markdown/text fallback
+            if os.path.exists(kb_path_md):
+                try:
+                    with open(kb_path_md, "r", encoding="utf-8") as f:
+                        frost_kb = f.read()
+                except Exception:
+                    frost_kb = ""
+            else:
+                frost_kb = ""
+else:
+    # no gemini helper; try python-docx loader, then md fallback
+    try:
+        frost_kb = safe_load_knowledge_base_docx(kb_path_docx)
+    except Exception:
+        if os.path.exists(kb_path_md):
+            try:
+                with open(kb_path_md, "r", encoding="utf-8") as f:
+                    frost_kb = f.read()
+            except Exception:
+                frost_kb = ""
+        else:
+            frost_kb = ""
+
+if not frost_kb:
+    st.warning("⚠️ FrostMart knowledge base not loaded or empty. Chat and report generation may be limited.")
+
+
+# -----------------------
 # Layout columns: left main content, right chat assistant
+# -----------------------
 left_col, chat_col = st.columns([3, 1])
 
-
+# -----------------------
 # RIGHT: Gemini Chat Assistant
-# FrostMart UK AI Assistant
+# -----------------------
 with chat_col:
     st.markdown("### 🤖 AI Assistant")
     st.markdown("*Ask questions about the dataset or FrostMart operations*")
 
     # Initialize session states
-    if 'chat_history' not in st.session_state:
+    if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
-    if 'messages' not in st.session_state:
+    if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # Reserved container for chat
-    chat_height = 700
+    # reserved chat box area (uses markdown with pre-wrapped text)
+    chat_height = 560
     chat_box = st.empty()
 
-    # Render chat messages
     def render_chat():
-        # Start scrollable chat container
-        chat_container = f"""
-        <div style='height:{chat_height}px; overflow-y:auto; overflow-x:hidden; padding:10px; border:1px solid #ddd; border-radius:10px; background-color:#f9f9f9; word-wrap:break-word;'>
-        """
-        chat_content = ""
-        for msg in st.session_state.messages:
-            if msg["role"] == "assistant":
-                color = "#0b6b3a"  # green
-                prefix = "🤖 Assistant:"
-                align = "left"
+        # Render conversation left-aligned, styled bubbles
+        html = f"<div style='font-family: Inter, sans-serif; max-height:{chat_height}px; overflow-y:auto; padding:8px;'>"
+        for msg in st.session_state.get("messages", []):
+            if msg["role"] == "user":
+                html += (
+                    "<div style='background:#f0f2f6; padding:10px 12px; border-radius:10px; margin:8px 0; "
+                    "max-width:95%; text-align:left;'>"
+                    f"<b>🧑 You:</b> {msg['content']}</div>"
+                )
             else:
-                color = "#2a2a2a"  # dark gray
-                prefix = "🧑 You:"
-                align = "left"
+                html += (
+                    "<div style='background:#e8f7ee; padding:10px 12px; border-radius:10px; margin:8px 0; "
+                    "max-width:95%; text-align:left;'>"
+                    f"<b>🤖 Assistant:</b> {msg['content']}</div>"
+                )
+        html += "</div>"
+        chat_box.markdown(html, unsafe_allow_html=True)
 
-            # Plain text output inside the container
-            chat_content += f"<div style='text-align:{align}; color:{color}; margin:5px 0;'>{prefix} {msg['content']}</div>"
-
-        chat_container += chat_content
-        chat_container += "</div>"
-        chat_box.markdown(chat_container, unsafe_allow_html=True)
-
-    # Initial render
+    # initial render
     render_chat()
 
     # Chat Input and AI Interaction
-    
     if prompt := st.chat_input("Ask a question..."):
+        # append user message
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        if not GEMINI_API_KEY or chat_with_frostmart is None:
+        # unavailable flows
+        if (not GEMINI_API_KEY) or (chat_with_frostmart is None):
             response = (
-                "⚠️ Chat assistant unavailable. Please ensure the GEMINI_API_KEY "
-                "is configured correctly and the gemini.py module is present."
+                "⚠️ Chat assistant unavailable. Ensure GEMINI_API_KEY is set and gemini.py is present."
             )
             st.session_state.chat_history.append({"role": "user", "content": prompt})
             st.session_state.chat_history.append({"role": "assistant", "content": response})
-
         else:
             with st.spinner("🤔 Thinking... generating insights..."):
                 try:
-                    raw_response = chat_with_frostmart(prompt, frost_kb, st.session_state.chat_history)
+                    raw_response = chat_with_frostmart(prompt, frost_kb, st.session_state.chat_history)  # type: ignore
 
-                    # ✨ Clean and make the AI response sound more conversational
-                    response = (
-                        raw_response.replace("**", "")  # remove Markdown
-                        .replace("#", "")                # remove stray headings
-                        .strip()
-                    )
+                    # sanitize and tidy the response
+                    if raw_response is None:
+                        response = "No response returned by the AI."
+                    else:
+                        response = str(raw_response).replace("**", "").replace("#", "").strip()
+                        # keep paragraphs readable
+                        response = response.replace(". ", ".  ")
+                        response = response.replace("\n\n", "<br><br>").replace("\n", "<br>")
 
-                    # Improve tone and readability
-                    response = response.replace(". ", ".  ")
-                    response = response.replace("\n", "<br>")
-
-                    # Append to conversation history
+                    # append both to history
                     st.session_state.chat_history.append({"role": "user", "content": prompt})
                     st.session_state.chat_history.append({"role": "assistant", "content": response})
 
                 except Exception as e:
-                    response = f"⚠️ Sorry, something went wrong while processing your request: {e}"
+                    response = f"⚠️ Sorry, something went wrong: {e}"
 
-        # Append formatted assistant message and rerender
+        # append assistant to visible messages and rerender
         st.session_state.messages.append({"role": "assistant", "content": response})
         render_chat()
         st.rerun()
-
-
 
     # Clear chat
     if st.button("🗑️ Clear Chat"):
         st.session_state.messages = []
         st.session_state.chat_history = []
         render_chat()
-        st.rerun()
+        st.experimental_rerun()
 
-        # Sample questions outside the box
+    # Sample questions
     with st.expander("💡 Sample Questions"):
-        st.markdown("""
-        - What is the total estimated annual loss from wastage and overstocking?
-        - Which product categories have the highest wastage rates?
-        - Which regions perform best in terms of sales and efficiency?
-        - What are the performance metrics (R², RMSE, MAPE) of the Gradient Boosting model?
-        - How does the AI model help reduce waste and optimize ordering?
-       
-        """)
+        st.markdown(
+            """
+- What is the total estimated annual loss from wastage and overstocking?
+- Which product categories have the highest wastage rates?
+- Which regions perform best in terms of sales and efficiency?
+- How much improvement in profitability is expected after deploying the AI model?
+- What are the performance metrics (R², RMSE, MAPE) of the Gradient Boosting model?
+- How does the AI model help reduce waste and optimize ordering?
+"""
+        )
+
 
 # FrostMart Report Generation
+
 st.markdown("---")
-if generate_frostmart_report is not None:
+if generate_frostmart_report is not None and GEMINI_API_KEY:
     st.subheader("🧾 Generate Full FrostMart Analytics Report")
-    st.markdown("""
-    This feature compiles key insights from FrostMart UK’s predictive demand model and 
-    knowledge base — summarizing trends in sales, wastage, supply chain performance, 
-    and forecasting accuracy across stores and product categories.
-    """)
-    kb_path = os.path.join("inference", "frostmart_knowledge_base.docx")
-    frost_kb = ""
-    if os.path.exists(kb_path):
-        try:
-            with open(kb_path, "r", encoding="utf-8") as f:
-                frost_kb = f.read()
-        except Exception as e:
-            st.warning(f"⚠️ Could not load FrostMart knowledge base: {e}")
-    else:
-        st.warning("⚠️ FrostMart knowledge base file not found in /inference directory.")
+    st.markdown(
+        """
+This feature compiles key insights from FrostMart UK’s predictive demand model and knowledge base — summarizing trends in sales, wastage, supply chain performance, and forecasting accuracy across stores and product categories.
+"""
+    )
 
     if st.button("🚀 Click Here to Generate Full Report", use_container_width=True, type="primary"):
         with st.spinner("Generating comprehensive FrostMart UK analytics report..."):
             try:
                 if not frost_kb:
-                    raise ValueError("Knowledge base is empty or could not be loaded.")
+                    st.warning("Knowledge base not loaded; proceeding using available model defaults and prompts.")
+                report_text = generate_frostmart_report(frost_kb)  # type: ignore
 
-                report_text = generate_frostmart_report(frost_kb)
+                if not report_text:
+                    st.error("Report generation returned empty content.")
+                else:
+                    st.success("✅ Report generated successfully!")
 
-                st.success("✅ Report generated successfully!")
+                    # allow download of full report
+                    st.download_button(
+                        label="📥 Download Report as Text",
+                        data=report_text,
+                        file_name="FrostMart_UK_Analytics_Report.txt",
+                        mime="text/plain",
+                    )
 
-                st.download_button(
-                    label="📥 Download Report as Text",
-                    data=report_text,
-                    file_name="FrostMart_UK_Analytics_Report.txt",
-                    mime="text/plain"
-                )
-
-                st.subheader("📊 FrostMart UK Business Insights Report")
-                st.markdown(
-                    f"<div style='white-space: pre-wrap; font-size: 16px; line-height: 1.6; color: #1a1a1a;'>{report_text}</div>",
-                    unsafe_allow_html=True,
-)
+                    # show the whole report (no slicing, no box truncation)
+                    st.subheader("📊 FrostMart UK Business Insights Report")
+                    st.markdown(
+                        f"<div style='white-space: pre-wrap; font-size:16px; line-height:1.6; color:#111;'>{report_text}</div>",
+                        unsafe_allow_html=True,
+                    )
 
             except Exception as e:
                 st.error(f"❌ Report generation failed: {e}")
                 st.info("💡 Ensure that `gemini.py` is configured correctly and the knowledge base file is present.")
 else:
-    st.info("⚠️ Report generator unavailable. Please add `gemini.py` with the function `generate_frostmart_report()` to enable this feature.")
+    st.info("⚠️ Report generator unavailable. Ensure `gemini.py` exists and GEMINI_API_KEY is set to enable report generation.")
 
 
 # LEFT: Main App Tabs
+
 with left_col:
     tab1, tab2, tab3, tab4 = st.tabs(
         ["📊 Introduction & Objectives", "🔮 Single Product Prediction", "📈 Batch Processing", "🧠 Model Details"]
     )
 
-# TAB 1
+# TAB 1 content (unchanged)
 with tab1:
     st.header("Project Overview: Predicting Demand for Perishable Goods at FrostMart UK")
-    st.markdown("""
-    - **Problem Statement:**  
-    FrostMart UK, a national grocery chain with over 800 stores, faces a persistent challenge in managing perishable goods efficiently.  
-    Products such as fresh produce, bakery items, and chilled foods generate a significant share of revenue but also contribute heavily to waste due to short shelf lives, weather fluctuations, and unpredictable customer demand.
+    st.markdown(
+        """
+- Problem Statement:
+FrostMart UK, a national grocery chain with over 800 stores, faces a persistent challenge in managing perishable goods efficiently.
+Products such as fresh produce, bakery items, and chilled foods generate a significant share of revenue but also contribute heavily to waste due to short shelf lives, weather fluctuations, and unpredictable customer demand.
 
-    This application leverages a **machine learning–based demand forecasting model** to predict weekly product demand across stores, 
-    helping the company minimize waste, improve inventory turnover, and ensure product availability.
-    """)
+This application leverages a machine learning–based demand forecasting model to predict weekly product demand across stores,
+helping the company minimize waste, improve inventory turnover, and ensure product availability.
+"""
+    )
     st.subheader("Key Business Drivers")
-    st.markdown("""
-    - **Waste Reduction:** Minimize overstocking and markdown losses, improving sustainability and profit margins.  
-    - **Procurement Accuracy:** Align supplier orders and deliveries with store-level demand patterns.  
-    - **Operational Efficiency:** Optimize cold storage usage and replenishment scheduling.  
-    - **Revenue Maximization:** Prevent lost sales due to understocking during demand spikes.  
-    - **Sustainability Commitment:** Support FrostMart UK’s corporate goals of reducing food waste and carbon footprint.
-    """)
+    st.markdown(
+        """
+- Waste Reduction: Minimize overstocking and markdown losses, improving sustainability and profit margins.
+- Procurement Accuracy: Align supplier orders and deliveries with store-level demand patterns.
+- Operational Efficiency: Optimize cold storage usage and replenishment scheduling.
+- Revenue Maximization: Prevent lost sales due to understocking during demand spikes.
+- Sustainability Commitment: Support FrostMart UK’s corporate goals of reducing food waste and carbon footprint.
+"""
+    )
     st.subheader("Project Objectives")
-    st.markdown("""
-    1. **Develop a Predictive Model:** Build a machine learning model to forecast weekly perishable demand at the store and product levels.  
-    2. **Integrate Multi-Factor Data:** Incorporate variables such as weather, shelf life, store characteristics, supplier capacity, and marketing spend.  
-    3. **Deliver Actionable Insights:** Provide automated order recommendations with safety buffers to aid procurement teams.  
-    4. **Improve Decision Support:** Enable planners and managers to visualize demand forecasts and make data-driven restocking decisions.  
-    5. **Enhance Sustainability:** Reduce waste, improve stock rotation, and strengthen FrostMart UK’s commitment to environmental responsibility.
-    """)
-    st.subheader("Expected Outcomes")
-    st.markdown("""
-    - **Operational Impact:** Substantial reduction in perishable waste and markdown losses across store networks.  
-    - **Financial Benefit:** Improved revenue through accurate demand prediction and optimized procurement.  
-    - **Strategic Advantage:** Data-driven replenishment recommendations and enhanced supplier coordination.  
-    - **Scalability:** A modular framework that can extend forecasting to multiple product categories and international markets.
-    """)
+    st.markdown(
+        """
+1. Develop a Predictive Model: Build a machine learning model to forecast weekly perishable demand at the store and product levels.
+2. Integrate Multi-Factor Data: Incorporate variables such as weather, shelf life, store characteristics, supplier capacity, and marketing spend.
+3. Deliver Actionable Insights: Provide automated order recommendations with safety buffers to aid procurement teams.
+4. Improve Decision Support: Enable planners and managers to visualize demand forecasts and make data-driven restocking decisions.
+5. Enhance Sustainability: Reduce waste, improve stock rotation, and strengthen FrostMart UK’s commitment to environmental responsibility.
+"""
+    )
+
     st.subheader("How to Use This App")
     st.info("""
     1. **Single Product Prediction:** Go to the *'Single Product Prediction'* tab, enter product and store details, and get an instant weekly demand forecast.  
