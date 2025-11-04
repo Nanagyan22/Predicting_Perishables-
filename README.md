@@ -1,7 +1,5 @@
-![Header](Header.png)
-# 🥕 FrostMart UK Perishable Demand Prediction System
+![Header](pic/header.png)
 
-> **Machine Learning Perishable Demand Forecasting Platform**  
 ---
 
 ## 🚀 Overview
@@ -15,9 +13,18 @@ This project delivers an end‑to‑end **machine learning and data‑driven sol
 - 🧠 Feature-level insights and model explainability for operational decisions  
 
 ---
-![Prediction](Prediction.png)
+![Prediction](pic/prediction.png)
 ---
-![Model](Model.png)
+---
+
+![Results](pic/results.png)
+---
+---
+
+![Model](pic/model.png)
+---
+---
+![Report](pic/reports.png)
 ---
 
 ## 🧩 Key Features
