@@ -108,79 +108,95 @@ KNOWLEDGE BASE:
 
 
 # Generate FrostMart Analytics Report
-def generate_frostmart_report(knowledge_base: str) -> str:
-    """Generate a comprehensive FrostMart UK business analytics report."""
+def generate_frostmart_report(knowledge_base: str = "") -> str:
+    """
+    Generates a full FrostMart UK Business Insights Report using Gemini.
+    Accepts an optional knowledge_base string (DOCX contents) to ground the report.
+    """
     if genai is None:
         return "⚠️ google.genai module not installed. Cannot generate report."
 
-    prompt = f"""
-You are Francis Afful Gyan, a Business Intelligence Specialist for FrostMart UK.
+    # Safety: ensure knowledge base is present (not blocking, but noted to the model)
+    kb_note = knowledge_base if knowledge_base else "Knowledge base content not provided; use available dataset and defaults."
 
-Your task:
-Generate a complete, detailed, and data-driven **Business Insights Report** for FrostMart UK, in the style and depth of a corporate business intelligence report (like the Iron Core Fitness example). The report must be **long, sectioned, and insight-rich**, not summarized.
+    report_prompt = f"""
+You are Francis Afful Gyan, a Business Intelligence Specialist at FrostMart UK.
+Generate a comprehensive, professional, and well-formatted business insights report for FrostMart UK,
+modeled after the example provided (Iron Core Fitness). The report must be long, clearly structured,
+and suitable for executive leadership.
 
-Use the knowledge base provided below as your reference.
-Include numeric details, KPIs, comparisons, and clear recommendations.
+Requirements:
+- Use plain text only (no markdown headings like #, no bold/asterisk symbols, no emojis).
+- Produce exactly nine numbered sections with descriptive titles:
+  1. Executive Summary
+  2. Financial Performance Analysis
+  3. Product Category Performance
+  4. Regional Sales and Wastage Trends
+  5. Demand Forecasting Model Evaluation
+  6. Supply Chain and Inventory Insights
+  7. Key Challenges and Opportunities
+  8. Strategic Recommendations
+  9. Conclusion
+- Write full paragraphs (not bullet-only), include clear numeric KPIs and examples.
+- Use realistic FrostMart values where applicable:
+  - Annual revenue around £255,716,700 (or state estimated revenue using available data)
+  - Wastage rate ~ 7.8%
+  - Estimated annual loss £12,200,000
+  - Predicted waste reduction savings 30–40%
+  - Model performance: R² ~ 0.9959, MAPE ~ 0.86%
+  - Expected revenue uplift 10–20%
+- For currency, always use pounds (£) with commas and two decimal places (e.g., £12,200,000.00).
+- Provide actionable, quantified recommendations. Each recommendation should include a "Success Metric".
+- Minimum length: aim for 1,200–1,800 words.
+- Start the output with the following lines (plain text exactly as shown):
+FROSTMART UK BUSINESS INSIGHTS REPORT
+Date: November 2025
+Prepared by: Francis Afful Gyan, Business Intelligence Specialist
 
-KNOWLEDGE BASE:
-{knowledge_base}
-
-FORMAT AND STRUCTURE REQUIREMENTS:
-The output must strictly follow this structure and produce a comprehensive report with 8–10 sections:
-
-# FROSTMART UK BUSINESS INSIGHTS REPORT
-
-Date: November 2025  
-Prepared by: Francis Afful Gyan, Business Intelligence Specialist  
-
-1. Executive Summary
-Provide a complete overview of FrostMart UK's performance in sales, wastage, profitability, and model-driven decision-making. Include specific figures like revenue uplift, wastage reduction, and AI accuracy metrics. Keep it at least 3 paragraphs long.
-
-2. Financial Performance Analysis
-- Include total revenue, total wastage cost, estimated losses (£12.2M), potential uplift (10–20%), and profit margin analysis.
-- Discuss trends, sustainability impact, and cash flow implications.
-
-3. Product and Regional Insights
-- Identify top-selling and highest-wastage product categories.
-- Compare regional performance (London, Midlands, South West, etc.)
-- Mention specific improvements or risks.
-
-4. Sales, Pricing, and Marketing Insights
-- Analyze promotional impacts, peak sales months, and seasonal sales trends.
-- Discuss marketing ROI and discount strategy effectiveness.
-
-5. Operational and Supply Chain Performance
-- Discuss inventory accuracy, overstocking, and procurement efficiency.
-- Highlight waste reduction targets and logistics optimization.
-
-6. Predictive Model Development and Performance
-- Explain which models were used (Linear Regression, Random Forest, Gradient Boosting).
-- Include performance metrics: R², RMSE, MAE, and MAPE.
-- Describe deployment via Streamlit and integration with FrostMart’s procurement systems.
-
-7. AI Deployment & Integration Strategy
-- Detail how AI predictions are integrated into business workflows.
-- Explain weekly retraining, data sources, and batch forecasting.
-- Include mention of the Streamlit app modules (single prediction, batch CSV, chat assistant).
-
-8. Key Challenges and Opportunities
-List at least 4 challenges and 4 opportunities, focusing on wastage, demand forecasting, data quality, and regional sales variation.
-
-9. Strategic Recommendations
-Provide actionable, quantifiable business recommendations with success metrics. Each should include a “Success Metric” like:
-- “Reduce wastage by 15% within 6 months.”
-- “Improve regional profitability in London by 10%.”
-
-10. Conclusion
-Summarize FrostMart UK’s business health, projected gains from predictive analytics, and next steps for continuous improvement.
-
-STYLE RULES:
-- Write in professional corporate tone, no asterisks or emojis.
-- Use markdown-style headings (#, ##, etc.).
-- Include all currency in pounds (£) and formatted with commas.
-- Write at least 1,200–1,800 words minimum.
-- Never summarize too early — fully elaborate insights.
+Knowledge base (for reference):
+{kb_note}
 """
+
+    try:
+        client = get_client()
+        response = client.models.generate_content(
+            model="gemini-2.5-pro",
+            contents=report_prompt,
+            config={"temperature": 0.35, "max_output_tokens": 16000},
+        )
+
+        # Safely extract text
+        raw = ""
+        if hasattr(response, "text"):
+            raw = response.text or ""
+        elif isinstance(response, str):
+            raw = response
+        else:
+            raw = str(response)
+
+        # Clean up stray markdown/symbols that the model might include despite instructions
+        clean_text = (
+            raw.replace("#", "")
+               .replace("*", "")
+               .replace("**", "")
+               .replace("`", "")
+               .strip()
+        )
+
+        # Ensure report begins with required title block; if not, prepend it
+        header = (
+            "FROSTMART UK BUSINESS INSIGHTS REPORT\n"
+            "Date: November 2025\n"
+            "Prepared by: Francis Afful Gyan, Business Intelligence Specialist\n\n"
+        )
+        if not clean_text.startswith("FROSTMART UK BUSINESS INSIGHTS REPORT"):
+            clean_text = header + clean_text
+
+        return clean_text
+
+    except Exception as e:
+        return f"⚠️ Report generation failed: {str(e)}"
+
     try:
         client = get_client()
         response = client.models.generate_content(
@@ -191,6 +207,8 @@ STYLE RULES:
         return response.text if response.text else "Unable to generate report."
     except Exception as e:
         return f"⚠️ Report generation failed: {str(e)}"
+
+
 
 
 # Example Usage
