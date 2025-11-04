@@ -193,7 +193,7 @@ def suggested_order(predicted_units: float, buffer_pct: float = 0.05) -> int:
 
 # Load DOCX Knowledge Base
 
-kb_path = os.path.join("inference", "frostmart_knowledge_base.docx")
+kb_path = os.path.join("inference", "frostmart_knowledge_base.md")
 frost_kb = ""
 if os.path.exists(kb_path):
     try:
