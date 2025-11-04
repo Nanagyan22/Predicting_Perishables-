@@ -19,9 +19,6 @@ try:
 except Exception:
     docx = None
 
-# ---- DO NOT import gemini directly here; import dynamically further below ----
-# from gemini import chat_with_frostmart, generate_frostmart_report, load_knowledge_base
-
 # Load the .env file from the same folder as app.py
 dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path)
@@ -49,9 +46,9 @@ if not GEMINI_API_KEY:
 else:
     print("✅ GEMINI_API_KEY loaded (if provided).")
 
-# -----------------------
+
 # App config & header
-# -----------------------
+
 st.set_page_config(
     page_title="FrostMart UK Perishable Demand Prediction System",
     page_icon="🥕",
@@ -80,9 +77,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# -----------------------
+
 # Inference artifact paths
-# -----------------------
+
 INFERENCE_DIR = "inference"
 MODEL_FILENAME = "xgboost_model.pkl"
 FEATURES_FILENAME = "xgboost_features.json"
@@ -92,9 +89,9 @@ MODEL_PATH = os.path.join(INFERENCE_DIR, MODEL_FILENAME)
 FEATURES_PATH = os.path.join(INFERENCE_DIR, FEATURES_FILENAME)
 ENCODINGS_PATH = os.path.join(INFERENCE_DIR, ENCODINGS_FILENAME)
 
-# -----------------------
+
 # Load model + artifacts
-# -----------------------
+
 @st.cache_resource
 def load_assets(inference_dir: str = INFERENCE_DIR) -> Tuple[Any, List[str], Any]:
     # model
@@ -151,9 +148,9 @@ def load_assets(inference_dir: str = INFERENCE_DIR) -> Tuple[Any, List[str], Any
 
 model, feature_names, encodings = load_assets()
 
-# -----------------------
+
 # Helper functions
-# -----------------------
+
 def prepare_input_data(input_dict: Dict[str, Any]) -> pd.DataFrame:
     prepared = {feat: 0.0 for feat in feature_names}
     for k, v in input_dict.items():
@@ -209,10 +206,9 @@ def suggested_order(predicted_units: float, buffer_pct: float = 0.05) -> int:
         return 0
 
 
-# -----------------------
+
 # Load DOCX Knowledge Base (safe)
-# -----------------------
-# Prefer using python-docx to read .docx files; do not open .docx with open(..., 'r')
+
 def safe_load_knowledge_base_docx(path: str) -> str:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Knowledge base file not found: {path}")
@@ -227,7 +223,7 @@ kb_path_docx = os.path.join(INFERENCE_DIR, "frostmart_knowledge_base.docx")
 kb_path_md = os.path.join(INFERENCE_DIR, "frostmart_knowledge_base.md")
 frost_kb = ""
 
-# Prefer gemini.load_knowledge_base if available (user provided gemini.py)
+# Prefer gemini.load_knowledge_base 
 if load_knowledge_base is not None:
     try:
         frost_kb = load_knowledge_base(kb_path_docx)  # type: ignore
@@ -263,14 +259,14 @@ if not frost_kb:
     st.warning("⚠️ FrostMart knowledge base not loaded or empty. Chat and report generation may be limited.")
 
 
-# -----------------------
+
 # Layout columns: left main content, right chat assistant
-# -----------------------
+
 left_col, chat_col = st.columns([3, 1])
 
-# -----------------------
+
 # RIGHT: Gemini Chat Assistant
-# -----------------------
+
 with chat_col:
     st.markdown("### 🤖 AI Assistant")
     st.markdown("*Ask questions about the dataset or FrostMart operations*")
@@ -281,7 +277,7 @@ with chat_col:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # reserved chat box area (uses markdown with pre-wrapped text)
+    # reserved chat box area
     chat_height = 560
     chat_box = st.empty()
 
@@ -350,7 +346,7 @@ with chat_col:
         st.session_state.messages = []
         st.session_state.chat_history = []
         render_chat()
-        st.experimental_rerun()
+        st.rerun()
 
     # Sample questions
     with st.expander("💡 Sample Questions"):
@@ -366,9 +362,9 @@ with chat_col:
         )
 
 
-# FrostMart Report Generation
-
+# 🌨️ FrostMart Report Generation
 st.markdown("---")
+
 if generate_frostmart_report is not None and GEMINI_API_KEY:
     st.subheader("🧾 Generate Full FrostMart Analytics Report")
     st.markdown(
@@ -382,6 +378,7 @@ This feature compiles key insights from FrostMart UK’s predictive demand model
             try:
                 if not frost_kb:
                     st.warning("Knowledge base not loaded; proceeding using available model defaults and prompts.")
+                
                 report_text = generate_frostmart_report(frost_kb)  # type: ignore
 
                 if not report_text:
@@ -389,7 +386,8 @@ This feature compiles key insights from FrostMart UK’s predictive demand model
                 else:
                     st.success("✅ Report generated successfully!")
 
-                    # allow download of full report
+                    # 📥 Allow Download of Full FrostMart Report
+         
                     st.download_button(
                         label="📥 Download Report as Text",
                         data=report_text,
@@ -397,10 +395,51 @@ This feature compiles key insights from FrostMart UK’s predictive demand model
                         mime="text/plain",
                     )
 
-                    # show the whole report (no slicing, no box truncation)
+            
+                    # 🧾 FORMAT AND DISPLAY REPORT CLEANLY
+              
+                    import re
+
+                    def format_report_text(report_text: str) -> str:
+                        """Clean up spacing and enhance visual presentation of the FrostMart report."""
+
+                        # Remove excessive blank lines
+                        report_text = re.sub(r'\n\s*\n\s*\n+', '\n\n', report_text.strip())
+
+                        # Convert key sections into formatted HTML subheadings
+                        report_text = re.sub(
+                            r'(?m)^(Executive Summary|Financial Performance Analysis|Product Category Performance|Regional Sales and Wastage Trends|Demand Forecasting Model Evaluation|Supply Chain and Inventory Insights|Key Challenges and Opportunities|Strategic Recommendations|Conclusion)\s*$',
+                            r"<h4 style='color:#0b6b3a; font-weight:700; font-size:20px; margin-top:25px;'>\1</h4>",
+                            report_text
+                        )
+
+                        # Format the main report title
+                        report_text = re.sub(
+                            r'^(FROSTMART UK BUSINESS INSIGHTS REPORT)',
+                            r"<h3 style='color:#0b6b3a; font-weight:800; font-size:24px;'>🧾 \1</h3>",
+                            report_text,
+                            flags=re.M
+                        )
+
+                        # Bolden “Date” and “Prepared by”
+                        report_text = re.sub(
+                            r'(?m)^(Date:|Prepared by:)',
+                            r"<b>\1</b>",
+                            report_text
+                        )
+
+                        return report_text
+
+                    # Apply formatting
+                    formatted_report = format_report_text(report_text)
+
+                   
+                    # 🖼️ Display Final Report in Streamlit
+                    
+                    st.markdown("---")
                     st.subheader("📊 FrostMart UK Business Insights Report")
                     st.markdown(
-                        f"<div style='white-space: pre-wrap; font-size:16px; line-height:1.6; color:#111;'>{report_text}</div>",
+                        f"<div style='font-size:16px; line-height:1.6; color:#111; text-align:justify;'>{formatted_report}</div>",
                         unsafe_allow_html=True,
                     )
 
@@ -418,7 +457,7 @@ with left_col:
         ["📊 Introduction & Objectives", "🔮 Single Product Prediction", "📈 Batch Processing", "🧠 Model Details"]
     )
 
-# TAB 1 content (unchanged)
+# TAB 1 content
 with tab1:
     st.header("Project Overview: Predicting Demand for Perishable Goods at FrostMart UK")
     st.markdown(
